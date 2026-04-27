@@ -4,19 +4,24 @@ import google.generativeai as genai
 # --- 1. إعدادات الصفحة ---
 st.set_page_config(page_title="SHOMA PRO LAB", layout="wide")
 
-# --- 2. الربط الآمن مع Secrets (طول العمر) ---
+# --- 2. جلب المفتاح وتحديد الموديل (تعديل الأمان) ---
 if "GEMINI_API_KEY" in st.secrets:
     try:
         genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-        # الحل لخطأ 404/NotFound: نستخدم الموديل بمساره المباشر
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        # الحل لخطأ 404: تجربة استدعاء الموديل بأكثر من صيغة لضمان التوافق
+        try:
+            model = genai.GenerativeModel('gemini-pro') # هذا الموديل هو الأكثر استقراراً للنسخ القديمة
+        except:
+            model = genai.GenerativeModel('models/gemini-pro')
         api_ready = True
-    except Exception:
+    except Exception as e:
+        st.error(f"❌ مشكلة في الإعدادات: {e}")
         api_ready = False
 else:
+    st.error("❌ المفتاح غير موجود في Secrets!")
     api_ready = False
 
-# --- 3. نظام الحماية ---
+# --- 3. نظام الدخول ---
 if "auth" not in st.session_state: st.session_state.auth = False
 
 if not st.session_state.auth:
@@ -34,40 +39,36 @@ DB_112 = {
         "سيروم الروزماري والبروكابيل": {
             "طبيعي": "50ml هيدروسول إكليل الجبل، 5ml زيت خروع أسود.",
             "كيميائي": "Procapil 3%, Vitamin B5 1%.",
-            "شرح": "إذابة البانثينول في الهيدروسول، ثم دمج الزيوت بمستحلب عند حرارة 40."
+            "شرح": "إذابة البانثينول في الهيدروسول، ثم دمج الزيوت بمستحلب عند حرارة 40 درجة."
         }
     }
 }
 
-# --- 5. واجهة العمل ---
+# --- 5. واجهة العمل والمستشارين ---
 if api_ready:
     st.success("✅ النظام متصل بذكاء جوجل!")
     
-    # المستشار العام
-    with st.expander("🤖 المستشار العام (المناقشة المفتوحة)"):
+    # أ- المستشار العام (في الأعلى)
+    with st.expander("🤖 المستشار العام (SHOMA Global AI)"):
         user_q = st.text_area("اطرح سؤالك هنا:")
-        if st.button("تحليل"):
+        if st.button("تحليل ذكي"):
             if user_q:
-                # حل مشكلة الـ NotFound عبر محاولة بديلة (Fallback)
                 try:
                     res = model.generate_content(user_q)
                     st.info(res.text)
-                except:
-                    # إذا فشل الموديل الأول، نجرب النسخة المستقرة الثانية
-                    alt_model = genai.GenerativeModel('gemini-pro')
-                    res = alt_model.generate_content(user_q)
-                    st.info(res.text)
+                except Exception as e:
+                    st.error(f"حدث خطأ في الاستجابة: {e}")
 
     st.divider()
 
-    # موسوعة الوصفات
+    # ب- موسوعة الوصفات (هنا تظهر الأقسام والوصفات)
     st.title("🔬 موسوعة الـ 112 وصفة")
-    cat = st.selectbox("الأقسام:", list(DB_112.keys()))
-    recipe = st.radio("المنتج:", list(DB_112[cat].keys()))
+    cat = st.selectbox("اختر المنطقة:", list(DB_112.keys()))
+    recipe_name = st.radio("المنتج:", list(DB_112[cat].keys()))
 
-    if recipe:
-        data = DB_112[cat][recipe]
-        st.header(f"✨ {recipe}")
+    if recipe_name:
+        data = DB_112[cat][recipe_name]
+        st.header(f"✨ {recipe_name}")
         t1, t2 = st.tabs(["📝 المكونات", "🧪 الشرح الممل"])
         with t1:
             st.write(f"**🍀 طبيعي:** {data['طبيعي']}")
