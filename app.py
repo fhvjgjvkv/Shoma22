@@ -1,33 +1,25 @@
 import streamlit as st
 import google.generativeai as genai
-import os
 
 # إعداد الصفحة
-st.set_page_config(page_title="SHOMA PRO LAB", layout="wide")
+st.set_page_config(page_title="SHOMA PRO LAB")
 
-# جلب المفتاح
-if "GEMINI_API_KEY" in st.secrets:
-    try:
-        api_key = st.secrets["GEMINI_API_KEY"]
-        genai.configure(api_key=api_key)
-        
-        # التعديل الجوهري: محاولة استدعاء الموديل بأكثر من طريقة
-        try:
-            model = genai.GenerativeModel('gemini-1.5-flash')
-        except:
-            model = genai.GenerativeModel('models/gemini-1.5-flash')
-        api_ready = True
-    except Exception as e:
-        st.error(f"خطأ في الإعدادات: {e}")
-        api_ready = False
-else:
-    st.error("المفتاح مفقود من Secrets!")
+# المفتاح المباشر اللي دزيته بالصورة
+MY_API_KEY = "AIzaSyC8amNz4ybtlws6avJIujei3v1j2S6a5XI"
+
+try:
+    genai.configure(api_key=MY_API_KEY)
+    # استخدام اسم الموديل بدون كلمة models/ لتجنب تعارض النسخ
+    model = genai.GenerativeModel('gemini-1.5-flash')
+    api_ready = True
+except Exception as e:
+    st.error(f"خطأ في الاتصال: {e}")
     api_ready = False
 
-# نظام الدخول (كلمة السر 247)
+# نظام الدخول البسيط
 if "auth" not in st.session_state: st.session_state.auth = False
 if not st.session_state.auth:
-    pwd = st.text_input("ادخل الرمز (247):", type="password")
+    pwd = st.text_input("الرمز السري (247):", type="password")
     if st.button("دخول"):
         if pwd == "247":
             st.session_state.auth = True
@@ -36,14 +28,18 @@ if not st.session_state.auth:
 
 # واجهة العمل
 if api_ready:
-    st.success("✅ النظام جاهز ومحدث")
-    q = st.text_input("اسأل المستشار:")
-    if st.button("تحليل"):
-        if q:
+    st.success("✅ النظام متصل بالمفتاح المباشر وجاهز!")
+    user_q = st.text_area("اطرح سؤالك هنا:")
+    if st.button("تحليل ذكي"):
+        if user_q:
             try:
-                # حل نهائي لمشكلة v1beta عبر طلب المحتوى مباشرة
-                response = model.generate_content(q)
-                st.write(response.text)
+                res = model.generate_content(user_q)
+                st.info(res.text)
             except Exception as e:
-                st.error(f"الخلل: {e}")
-                st.info("إذا ظهر خطأ 404، اضغط على Reboot App الآن.")
+                # إذا رجع خطأ الـ 404، نستخدم الموديل المستقر القديم
+                try:
+                    alt_model = genai.GenerativeModel('gemini-pro')
+                    res = alt_model.generate_content(user_q)
+                    st.info(res.text)
+                except:
+                    st.error("السيرفر يحتاج إعادة تشغيل (Reboot) بعد تعديل المتطلبات.")
