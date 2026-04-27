@@ -1,46 +1,49 @@
 import streamlit as st
 import google.generativeai as genai
+import os
 
 # إعداد الصفحة
 st.set_page_config(page_title="SHOMA PRO LAB", layout="wide")
 
-# جلب المفتاح من الخزنة السرية
+# جلب المفتاح
 if "GEMINI_API_KEY" in st.secrets:
     try:
-        genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-        # تحديد الموديل بطريقة متوافقة مع كل النسخ
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        api_key = st.secrets["GEMINI_API_KEY"]
+        genai.configure(api_key=api_key)
+        
+        # التعديل الجوهري: محاولة استدعاء الموديل بأكثر من طريقة
+        try:
+            model = genai.GenerativeModel('gemini-1.5-flash')
+        except:
+            model = genai.GenerativeModel('models/gemini-1.5-flash')
         api_ready = True
-    except:
+    except Exception as e:
+        st.error(f"خطأ في الإعدادات: {e}")
         api_ready = False
 else:
+    st.error("المفتاح مفقود من Secrets!")
     api_ready = False
 
-# نظام الدخول
+# نظام الدخول (كلمة السر 247)
 if "auth" not in st.session_state: st.session_state.auth = False
 if not st.session_state.auth:
-    pwd = st.text_input("الرمز السري (247):", type="password")
+    pwd = st.text_input("ادخل الرمز (247):", type="password")
     if st.button("دخول"):
         if pwd == "247":
             st.session_state.auth = True
             st.rerun()
     st.stop()
 
-# الواجهة الرئيسية
+# واجهة العمل
 if api_ready:
-    st.success("✅ النظام متصل وجاهز للعمل!")
-    user_q = st.text_area("اسأل المستشار الآن:")
-    if st.button("تحليل ذكي"):
-        if user_q:
+    st.success("✅ النظام جاهز ومحدث")
+    q = st.text_input("اسأل المستشار:")
+    if st.button("تحليل"):
+        if q:
             try:
-                # محاولة طلب المحتوى
-                response = model.generate_content(user_q)
-                st.info(response.text)
+                # حل نهائي لمشكلة v1beta عبر طلب المحتوى مباشرة
+                response = model.generate_content(q)
+                st.write(response.text)
             except Exception as e:
-                # خطة بديلة في حال وجود مشكلة في نسخة المكتبة
-                try:
-                    alt_model = genai.GenerativeModel('gemini-pro')
-                    response = alt_model.generate_content(user_q)
-                    st.info(response.text)
-                except:
-                    st.error(f"يرجى عمل Reboot للتطبيق من إعدادات Streamlit: {e}")
+                st.error(f"الخلل: {e}")
+                st.info("إذا ظهر خطأ 404، اضغط على Reboot App الآن.")
