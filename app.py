@@ -1,31 +1,30 @@
 import streamlit as st
 import google.generativeai as genai
 
-# --- إعدادات النظام الاحترافي ---
+# --- إعدادات النظام ---
 st.set_page_config(page_title="SHOMA Ultimate Hybrid", layout="wide")
 
 # --- قاعدة بيانات الـ 112 وصفة (هجين: طبيعي + كيميائي) ---
 DB_112 = {
     "1. الشعر (إنبات وترميم)": {
         "سيروم الروزماري والبروكابيل": {
-            "طبيعي": "هيدروسول إكليل الجبل (50ml)، زيت خروع أسود (5ml)، مستخلص القراص.",
-            "كيميائي": "Procapil 3%, Vitamin B5 (Panthenol) 1%, Phenonip 0.5%.",
-            "شرح ممل للتحضير": "أولاً: نذيب البانثينول في هيدروسول الروزماري. ثانياً: نخلط الزيوت مع مادة (Solubilizer) لضمان عدم انفصال الزيت عن الماء. ثالثاً: ندمج المزيجين ونضيف البروكابيل والمادة الحافظة ونرج العبوة جيداً. يُحفظ في مكان بارد."
+            "طبيعي": "50ml هيدروسول إكليل الجبل، 5ml زيت خروع أسود، مستخلص القراص.",
+            "كيميائي": "Procapil 3%, Vitamin B5 1%, Phenonip 0.5%.",
+            "شرح ممل": "1. إذابة البانثينول في الهيدروسول. 2. خلط الزيوت مع Solubilizer. 3. دمج المزيجين وإضافة البروكابيل والمادة الحافظة."
         },
         "ماسك السدر والكيراتين": {
-            "طبيعي": "بودرة سدر منخول (100g)، زيت جوز هند (20ml)، زبدة شيا (10ml).",
+            "طبيعي": "100g بودرة سدر، 20ml زيت جوز هند، 10ml زبدة شيا.",
             "كيميائي": "Hydrolyzed Keratin 2%, Cetyl Alcohol 1%.",
-            "شرح ممل للتحضير": "نذيب الزبدة والزيوت مع الـ Cetyl Alcohol في حمام مائي (طور زيتي). نخلط السدر بماء دافئ (طور مائي). ندمج الطورين بالخلاط الكهربائي حتى يتحول لقوام كريمي، ثم نضيف الكيراتين بعد أن يبرد الخليط."
+            "شرح ممل": "تذويب الزبدة والزيوت مع سيتيل الكحول، ثم دمجها مع عجينة السدر الدافئة بالخلاط."
         }
     },
     "2. الوجه (تفتيح ونضارة)": {
         "كريم لبان الذكر والأربوتين": {
-            "طبيعي": "منقوع لبان ذكر مركز (20g)، زيت لوز مر (10ml).",
+            "طبيعي": "20g منقوع لبان ذكر مركز، 10ml زيت لوز مر.",
             "كيميائي": "Alpha Arbutin 2%, Kojic Acid 2%, Vitamin E 1%.",
-            "شرح ممل للتحضير": "نسخن الزيوت والماء لدرجة 70 مئوية. نستخدم مستحلب لدمجهم. ننتظر حتى تنخفض الحرارة لـ 40 درجة (مهم جداً) ثم نضيف الأربوتين والكوجيك أسيد وفيتامين E لضمان عدم تلف المواد الفعالة بالحرارة."
+            "شرح ممل": "تسخين الطورين لـ 70 درجة، الدمج بالمستحلب، ثم إضافة الأربوتين والكوجيك بعد أن تبرد الحرارة لـ 40 درجة."
         }
     }
-    # ملاحظة: يمكنك إضافة بقية الـ 16 قسم هنا بنفس الترتيب
 }
 
 # --- نظام الحماية (كلمة المرور مخفية) ---
@@ -36,35 +35,29 @@ if not st.session_state.auth:
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         st.image("shoma_logo.png", width=200)
-        # كلمة المرور تظهر كنجوم الآن
         pwd = st.text_input("أدخل الرمز السري:", type="password")
         if pwd == "247":
             st.session_state.auth = True
             st.rerun()
     st.stop()
 
-# --- خانة المستشار المنفصلة (Sidebar) ---
-with st.sidebar:
-    st.header("🤖 مستشار المختبر")
-    st.write("اكتب سؤالك عن دمج المواد الطبيعية والكيميائية:")
-    
-    # حقل مفتاح الـ API
-    api_key = st.text_input("API KEY (للمستشار):", type="password")
-    
-    user_q = st.text_area("سؤالك العلمي:", height=150)
-    if st.button("استشر SHOMA"):
-        if api_key:
-            try:
-                genai.configure(api_key=api_key)
-                model = genai.GenerativeModel('gemini-1.5-flash')
-                res = model.generate_content(f"أنت خبير مختبرات تجميلية، اشرح بالتفصيل: {user_q}")
-                st.info(res.text)
-            except: st.error("تأكد من صحة الـ API Key")
-        else: st.warning("يرجى إدخال مفتاح API أولاً")
+# --- 1. المستشار العام (في أعلى الصفحة - خانة مستقلة) ---
+st.markdown("### 🤖 المستشار العام (SHOMA Global AI)")
+api_key = "YOUR_API_KEY_HERE" # ضع مفتاحك هنا
+genai.configure(api_key=api_key)
+model = genai.GenerativeModel('gemini-1.5-flash')
+
+with st.expander("فتح المستشار العام للمناقشة (خارج الوصفات)"):
+    global_q = st.text_area("اسأل عن أي شيء (برمجة، تداول، كيمياء عامة):", key="global_ai")
+    if st.button("تحليل عام"):
+        if global_q:
+            res = model.generate_content(global_q)
+            st.info(res.text)
+
+st.divider()
 
 # --- الواجهة الرئيسية للوصفات ---
-st.title("🔬 موسوعة الـ 112 وصفة (هجين)")
-st.divider()
+st.title("🔬 موسوعة الـ 112 وصفة الهجينة")
 
 col_nav, col_details = st.columns([1, 2])
 
@@ -78,14 +71,23 @@ with col_details:
         data = DB_112[cat][recipe_name]
         st.header(f"✨ {recipe_name}")
         
-        tab1, tab2 = st.tabs(["📝 المكونات الهجينة", "🧪 الشرح الممل للتحضير"])
+        tab1, tab2 = st.tabs(["📝 المكونات", "🧪 الشرح الممل"])
         
         with tab1:
-            st.success(f"**🍀 المكونات الطبيعية:** \n\n {data['طبيعي']}")
-            st.warning(f"**🧪 المكونات الكيميائية:** \n\n {data['كيميائي']}")
+            st.success(f"**🍀 طبيعي:** {data['طبيعي']}")
+            st.warning(f"**🧪 كيميائي:** {data['كيميائي']}")
         
         with tab2:
-            st.info(f"**الخطوات بالتفصيل:** \n\n {data['شرح ممل للتحضير']}")
+            st.info(f"**خطوات التحضير:** {data['شرح ممل']}")
+            
+            # --- 2. المستشار الخاص (تحت كل وصفة) ---
+            st.markdown("---")
+            st.subheader(f"🔍 مستشار وصفة {recipe_name}")
+            local_q = st.text_input(f"اسأل المستشار عن تعديل هذه الوصفة:", key=f"q_{recipe_name}")
+            if st.button(f"استشارة خاصة لـ {recipe_name}"):
+                full_prompt = f"أنا أعمل على وصفة {recipe_name} المكونة من {data['طبيعي']} و {data['كيميائي']}. سؤالي هو: {local_q}"
+                res = model.generate_content(full_prompt)
+                st.success(res.text)
 
 st.markdown("---")
-st.caption("SHOMA Hybrid System v6.0 | تم إخفاء الرمز وتفعيل المستشار")
+st.caption("SHOMA Hybrid System v7.0 | نظام المستشار المزدوج والخصوصية التامة")
