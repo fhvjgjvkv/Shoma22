@@ -17,10 +17,11 @@ st.markdown("""
     .stExpander { background-color: #1e2130; border: 1px solid #D4AF37; border-radius: 10px; }
     h1, h2, h3 { color: #D4AF37 !important; text-align: center; }
     .sidebar-text { color: #D4AF37; font-weight: bold; }
+    .stTable { background-color: #161b22; color: white; }
 </style>
 """, unsafe_allow_html=True)
 
-# 2. جلب المفتاح تلقائياً من Secrets (أمان عالي)
+# 2. جلب المفتاح تلقائياً من Secrets (الحل القطعي للربط)
 try:
     if "GEMINI_API_KEY" in st.secrets:
         api_key = st.secrets["GEMINI_API_KEY"]
@@ -30,11 +31,11 @@ try:
 except Exception as e:
     st.sidebar.error(f"خطأ في الوصول للمفتاح: {e}")
 
-# 3. نظام الأمان
+# 3. نظام الأمان (الرمز: 247)
 if "auth" not in st.session_state: st.session_state.auth = False
 if not st.session_state.auth:
     st.markdown("<h1>🔬 SHOMA LAB PRO - نظام الدخول</h1>", unsafe_allow_html=True)
-    pwd = st.text_input("الرمز السري:", type="password")
+    pwd = st.text_input("الرمز السري للوصول:", type="password")
     if st.button("دخول"):
         if pwd == "247":
             st.session_state.auth = True
@@ -156,33 +157,29 @@ all_recipes = [
     {"name": "بارافين", "cat": "عناية القدم", "type": "منزلي", "ing": "بارافين 80%, زيت زيتون 20%", "method": "تنعيم فائق."}
 ]
 
-# 5. القائمة الجانبية - حاسبة الأوزان
+# 5. القائمة الجانبية
 st.sidebar.markdown("<p class='sidebar-text'>⚖️ حاسبة الإنتاج</p>", unsafe_allow_html=True)
-total_weight = st.sidebar.number_input("الوزن المطلوب لإنتاجه (غرام):", min_value=1, value=1000)
+total_weight = st.sidebar.number_input("الوزن المطلوب (g):", min_value=1, value=1000)
 
 # 6. الواجهة الرئيسية
 st.title("🔬 SHOMA LAB PRO")
-tabs = st.tabs(["📚 قاعدة الوصفات الكاملة (100)", "🧠 خبير الذكاء الاصطناعي"])
+tabs = st.tabs(["📚 قاعدة الوصفات (100)", "🧠 خبير الذكاء الاصطناعي"])
 
 with tabs[0]:
     col1, col2 = st.columns([2, 1])
     with col1:
-        search_query = st.text_input("🔍 ابحث عن منتج، قسم، أو مكون:")
+        search_query = st.text_input("🔍 ابحث:")
     with col2:
-        cat_filter = st.selectbox("📂 تصفية حسب القسم:", ["الكل"] + sorted(list(set(r['cat'] for r in all_recipes))))
+        cat_filter = st.selectbox("📂 القسم:", ["الكل"] + sorted(list(set(r['cat'] for r in all_recipes))))
     
-    # الفلترة
     filtered_list = [r for r in all_recipes if (search_query.lower() in r['name'].lower() or search_query.lower() in r['ing'].lower())]
     if cat_filter != "الكل": filtered_list = [r for r in filtered_list if r['cat'] == cat_filter]
 
-    st.write(f"📊 عدد الوصفات المعروضة: {len(filtered_list)}")
-
     for r in filtered_list:
-        with st.expander(f"✨ {r['name']} | {r['cat']} ({r['type']})"):
-            st.markdown(f"**🔬 المكونات الأساسية:** {r['ing']}")
-            st.info(f"**📝 طريقة التحضير:** {r['method']}")
+        with st.expander(f"✨ {r['name']} | {r['cat']}"):
+            st.write(f"**المكونات:** {r['ing']}")
+            st.info(f"**التحضير:** {r['method']}")
             
-            # معالجة الأوزان
             parts = r['ing'].split(',')
             calc_data = []
             for p in parts:
@@ -192,22 +189,22 @@ with tabs[0]:
                     weight = (perc / 100) * total_weight
                     name = p.split(str(perc))[0].strip()
                     calc_data.append({"المادة": name, "النسبة": f"{perc}%", "الوزن (g)": f"{weight:,.1f}"})
-            
             if calc_data:
-                st.markdown(f"**⚖️ جدول الكميات لإنتاج {total_weight} غرام:**")
                 st.table(pd.DataFrame(calc_data))
 
 with tabs[1]:
     st.subheader("🤖 خبير Gemini البصري")
-    img_file = st.file_uploader("ارفع صورة للمنتج، المكونات، أو حالة جلدية:", type=["jpg", "png", "jpeg"])
-    user_q = st.text_area("اطرح سؤالك البرمجي أو الكيميائي:")
+    img_file = st.file_uploader("ارفع صورة للمنتج أو المكونات:", type=["jpg", "png", "jpeg"])
+    user_q = st.text_area("سؤالك البرمجي أو الكيميائي:")
     
     if st.button("تحليل الآن"):
         if 'api_key' in locals():
             with st.spinner("جاري التحليل..."):
                 try:
-                    model = genai.GenerativeModel('gemini-1.5-flash')
-                    prompt = f"أنت خبير مختبر SHOMA LAB. أجب بدقة وموضوعية: {user_q}"
+                    # الحل الجذري والقطعي لخطأ 404:
+                    model = genai.GenerativeModel(model_name='models/gemini-1.5-flash')
+                    
+                    prompt = f"أنت خبير مختبر SHOMA LAB. أجب بدقة: {user_q}"
                     if img_file:
                         img = Image.open(img_file)
                         res = model.generate_content([prompt, img])
@@ -217,7 +214,7 @@ with tabs[1]:
                 except Exception as e:
                     st.error(f"خطأ في الاتصال بـ Gemini: {e}")
         else:
-            st.warning("يرجى إضافة مفتاح الـ API في الإعدادات أولاً.")
+            st.warning("تأكد من وجود API Key في الإعدادات.")
 
 st.markdown("---")
 st.caption("SHOMA LAB PRO © 2026 | الإصدار النهائي المتكامل")
