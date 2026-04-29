@@ -1,51 +1,50 @@
 import streamlit as st
 import pandas as pd
 import re
-import google.generativeai as genai
+from groq import Groq
+import base64
 from PIL import Image
+import io
 
-# 1. إعدادات الهوية والتصميم
+# 1. إعدادات الهوية والتصميم (Dark Theme)
 st.set_page_config(page_title="SHOMA LAB PRO", layout="wide", page_icon="🔬")
 
 st.markdown("""
 <style>
-    .main { background-color: #0e1117; color: white; }
+    .main { background-color: #0e1117; }
+    .stChatFloatingInputContainer { bottom: 20px; }
     .stButton>button { 
-        background: linear-gradient(45deg, #D4AF37, #996515); 
-        color: white; font-weight: bold; border-radius: 10px; border: none; height: 3em; width: 100%;
+        background: linear-gradient(45deg, #00ffcc, #0055ff); 
+        color: white; border-radius: 10px; border: none; font-weight: bold;
     }
-    .stExpander { background-color: #1e2130; border: 1px solid #D4AF37; border-radius: 10px; }
-    h1, h2, h3 { color: #D4AF37 !important; text-align: center; }
-    .sidebar-text { color: #D4AF37; font-weight: bold; }
-    .stTable { background-color: #161b22; color: white; }
+    .stExpander { background-color: #1e2130; border: 1px solid #00ffcc; border-radius: 10px; }
+    h1, h2, h3 { color: #00ffcc !important; text-align: center; }
+    .sidebar-text { color: #00ffcc; font-weight: bold; }
 </style>
 """, unsafe_allow_html=True)
 
-# 2. جلب المفتاح تلقائياً من Secrets (الحل القطعي للربط)
-try:
-    if "GEMINI_API_KEY" in st.secrets:
-        api_key = st.secrets["GEMINI_API_KEY"]
-        genai.configure(api_key=api_key)
-    else:
-        st.sidebar.warning("⚠️ يرجى إضافة GEMINI_API_KEY في Secrets")
-except Exception as e:
-    st.sidebar.error(f"خطأ في الوصول للمفتاح: {e}")
+# 2. إعداد محرك Groq بالمفتاح الذي زودتني به
+# ملاحظة: برمجياً الأفضل وضعه في Secrets، لكن وضعته هنا مباشرة بناءً على طلبك
+client = Groq(api_key="Gsk_6yiYaU9DB5VlnV3BTv1OWGdyb3FYDj1vZU8gRR6NybW3YUyXBF0f")
 
-# 3. نظام الأمان (الرمز: 247)
+# 3. إدارة الجلسة والذاكرة
 if "auth" not in st.session_state: st.session_state.auth = False
+if "messages" not in st.session_state: st.session_state.messages = []
+
+# نظام الأمان (الرمز 247)
 if not st.session_state.auth:
     st.markdown("<h1>🔬 SHOMA LAB PRO - نظام الدخول</h1>", unsafe_allow_html=True)
-    pwd = st.text_input("الرمز السري للوصول:", type="password")
-    if st.button("دخول"):
+    pwd = st.text_input("أدخل الرمز السري للوصول:", type="password")
+    if st.button("تأكيد الدخول"):
         if pwd == "247":
             st.session_state.auth = True
             st.rerun()
-        else: st.error("رمز الدخول غير صحيح!")
+        else: st.error("الرمز غير صحيح.")
     st.stop()
 
-# 4. قاعدة البيانات الشاملة (100 وصفة)
+# 4. قاعدة البيانات (الـ 100 وصفة كاملة)
 all_recipes = [
-    # --- قسم الشعر (10) ---
+    # --- قسم الشعر ---
     {"name": "سيروم الروزماري والبروكابيل", "cat": "عناية الشعر", "type": "تجاري", "ing": "ماء 85%, بروكابيل 3%, جلسرين 10%, حافظة 2%", "method": "خلط بارد."},
     {"name": "ماسك الجرجير المنزلي", "cat": "عناية الشعر", "type": "منزلي", "ing": "عصير جرجير 70%, زيت زيتون 20%, ليمون 10%", "method": "استخدام فوري."},
     {"name": "سيروم الكافيين", "cat": "عناية الشعر", "type": "تجاري", "ing": "ماء 90%, كافيين 5%, بانثينول 5%", "method": "إذابة الكافيين بماء دافئ."},
@@ -56,7 +55,7 @@ all_recipes = [
     {"name": "تونيك الزعتر المنبت", "cat": "عناية الشعر", "type": "منزلي", "ing": "ماء 80%, زعتر 10%, إكليل جبل 10%", "method": "غلي وتبريد."},
     {"name": "سيروم الببتيدات", "cat": "عناية الشعر", "type": "تجاري", "ing": "ماء 90%, ببتيدات 5%, هيالورونيك 5%", "method": "دمج بارد."},
     {"name": "ماسك الشيا للترميم", "cat": "عناية الشعر", "type": "منزلي", "ing": "زبدة شيا 60%, زيت أرغان 30%, عسل 10%", "method": "تذويب بحمام مائي."},
-    # --- قسم تبييض البشرة (10) ---
+    # --- قسم تبييض البشرة ---
     {"name": "كريم ألفا أربوتين", "cat": "تبييض البشرة", "type": "تجاري", "ing": "قاعدة كريم 80%, أربوتين 2%, عرقسوس 10%, نياسيناميد 8%", "method": "دمج بطيء."},
     {"name": "ماسك الكركم والزبادي", "cat": "تبييض البشرة", "type": "منزلي", "ing": "زبادي 80%, كركم 10%, عسل 10%", "method": "15 دقيقة."},
     {"name": "سيروم الترانيكساميك", "cat": "تبييض البشرة", "type": "تجاري", "ing": "ماء 80%, ترانيكساميك 5%, نياسيناميد 10%, حافظة 5%", "method": "ضبط pH 5.5."},
@@ -67,7 +66,7 @@ all_recipes = [
     {"name": "سكراب الليمون", "cat": "تبييض البشرة", "type": "منزلي", "ing": "سكر 60%, زيت ليمون 20%, عسل 20%", "method": "فرك دائري."},
     {"name": "لوشن العرقسوس", "cat": "تبييض البشرة", "type": "تجاري", "ing": "لوشن 85%, عرقسوس 10%, ليمون 5%", "method": "خلط المستخلصات."},
     {"name": "تونر الليمون", "cat": "تبييض البشرة", "type": "منزلي", "ing": "ماء مقطر 80%, ليمون 20%", "method": "مسح ليلي."},
-    # --- قسم الشيخوخة (10) ---
+    # --- قسم الشيخوخة ---
     {"name": "سيروم الريتينول 1%", "cat": "الشيخوخة", "type": "تجاري", "ing": "سكوالين 94%, ريتينول 1%, فيتامين اي 5%", "method": "تجنب الضوء."},
     {"name": "ماسك لبان الذكر", "cat": "الشيخوخة", "type": "منزلي", "ing": "منقوع لبان 80%, نشا 20%", "method": "غلي وتبريد."},
     {"name": "سيروم الأرجيريلين", "cat": "الشيخوخة", "type": "تجاري", "ing": "ماء 88%, أرجيريلين 10%, حافظة 2%", "method": "دمج بارد."},
@@ -78,7 +77,7 @@ all_recipes = [
     {"name": "زيت الروزهيب", "cat": "الشيخوخة", "type": "منزلي", "ing": "زيت روزهيب 90%, فيتامين اي 10%", "method": "مساج ليلي."},
     {"name": "ببتيدات النحاس", "cat": "الشيخوخة", "type": "تجاري", "ing": "ماء 90%, ببتيد 8%, حافظة 2%", "method": "بناء أنسجة."},
     {"name": "ماسك القهوة والبيض", "cat": "الشيخوخة", "type": "منزلي", "ing": "تفل قهوة 70%, بياض بيض 30%", "method": "شد فوري."},
-    # --- قسم القشرة (10) ---
+    # --- قسم القشرة ---
     {"name": "شامبو الفحم", "cat": "القشرة", "type": "تجاري", "ing": "قاعدة 90%, فحم 5%, منثول 5%", "method": "سحب دهون."},
     {"name": "غسول خل التفاح", "cat": "القشرة", "type": "منزلي", "ing": "ماء 80%, خل تفاح 20%", "method": "شطف نهائي."},
     {"name": "لوشن الزنك", "cat": "القشرة", "type": "تجاري", "ing": "ماء 90%, زنك 5%, حافظة 5%", "method": "علاج فطريات."},
@@ -89,7 +88,7 @@ all_recipes = [
     {"name": "سكراب الفروة", "cat": "القشرة", "type": "منزلي", "ing": "سكر 50%, زيت 40%, نعناع 10%", "method": "تقشير فيزيائي."},
     {"name": "بخاخ الصبار", "cat": "القشرة", "type": "تجاري", "ing": "جل صبار 95%, لافندر 5%", "method": "تهدئة."},
     {"name": "طين الخل", "cat": "القشرة", "type": "منزلي", "ing": "طين 70%, ماء ورد 20%, خل 10%", "method": "امتصاص دهون."},
-    # --- قسم تنظيف وتقشير (10) ---
+    # --- قسم تنظيف وتقشير ---
     {"name": "مقشر AHA 30%", "cat": "تنظيف وتقشير", "type": "تجاري", "ing": "ماء 60%, جليكوليك 30%, جلسرين 10%", "method": "تقشير كيميائي."},
     {"name": "مقشر الشوفان", "cat": "تنظيف وتقشير", "type": "منزلي", "ing": "شوفان 60%, حليب دافئ 40%", "method": "تنظيف هادئ."},
     {"name": "غسول الساليسيليك", "cat": "تنظيف وتقشير", "type": "تجاري", "ing": "قاعدة 95%, ساليسيليك 2%, شاي 3%", "method": "لحب الشباب."},
@@ -100,7 +99,7 @@ all_recipes = [
     {"name": "فحم وجيلاتين", "cat": "تنظيف وتقشير", "type": "منزلي", "ing": "جيلاتين 50%, ماء 40%, فحم 10%", "method": "إزالة رؤوس."},
     {"name": "طين بركاني", "cat": "تنظيف وتقشير", "type": "تجاري", "ing": "قاعدة غسول 80%, طين 20%", "method": "تنظيف عميق."},
     {"name": "ملح ولافندر", "cat": "تنظيف وتقشير", "type": "منزلي", "ing": "ملح 80%, زيت لافندر 20%", "method": "سكراب ملحي."},
-    # --- قسم الجسم (10) ---
+    # --- قسم الجسم ---
     {"name": "لوشن اليوريا 10%", "cat": "عناية الجسم", "type": "تجاري", "ing": "قاعدة 85%, يوريا 10%, زيت 5%", "method": "لجلد الدجاجة."},
     {"name": "جليسوليد وليمون", "cat": "عناية الجسم", "type": "منزلي", "ing": "جليسوليد 70%, ليمون 20%, زيت 10%", "method": "تبييض."},
     {"name": "زبدة جسم مخفوقة", "cat": "عناية الجسم", "type": "تجاري", "ing": "شيا 50%, كاكاو 30%, جوز هند 20%", "method": "خفق جيد."},
@@ -111,7 +110,7 @@ all_recipes = [
     {"name": "نيلة مغربية", "cat": "عناية الجسم", "type": "منزلي", "ing": "زبادي 80%, نيلة 20%", "method": "تفتيح فوري."},
     {"name": "لوشن مسك", "cat": "عناية الجسم", "type": "تجاري", "ing": "لوشن 90%, زيت مسك 10%", "method": "تعطير."},
     {"name": "بخاخ ورد وجلسرين", "cat": "عناية الجسم", "type": "منزلي", "ing": "ماء ورد 90%, جلسرين 10%", "method": "انتعاش."},
-    # --- قسم علاجيات (10) ---
+    # --- قسم علاجيات ---
     {"name": "مرهم حروق", "cat": "علاجيات", "type": "تجاري", "ing": "سمسم 80%, شمع نحل 20%", "method": "ترميم."},
     {"name": "كركم وفيكس", "cat": "علاجيات", "type": "منزلي", "ing": "فيكس 80%, كركم 20%", "method": "فطريات."},
     {"name": "سيليكون ندبات", "cat": "علاجيات", "type": "تجاري", "ing": "سيليكون 90%, مستخلص بصل 10%", "method": "للندبات."},
@@ -122,7 +121,7 @@ all_recipes = [
     {"name": "محلول المرة", "cat": "علاجيات", "type": "منزلي", "ing": "ماء 90%, مرة 10%", "method": "تعقيم."},
     {"name": "مسكن عضلات", "cat": "علاجيات", "type": "تجاري", "ing": "فازلين 80%, منثول 10%, كافور 10%", "method": "مساج."},
     {"name": "غسول بابونج عيون", "cat": "علاجيات", "type": "منزلي", "ing": "ماء 90%, بابونج 10%", "method": "تهدئة عيون."},
-    # --- قسم عطور (10) ---
+    # --- قسم عطور ---
     {"name": "مخمرية عود", "cat": "عطور", "type": "تجاري", "ing": "فازلين 80%, عود 10%, مسك 10%", "method": "تذويب."},
     {"name": "مخمرية مسك بودرة", "cat": "عطور", "type": "منزلي", "ing": "فازلين 80%, مسك مطحون 20%", "method": "دمج يدوي."},
     {"name": "عطر شعر", "cat": "عطور", "type": "تجاري", "ing": "سيليكون 90%, عطر 10%", "method": "ثبات ولمعان."},
@@ -133,7 +132,7 @@ all_recipes = [
     {"name": "زيت ورد لوز", "cat": "عطور", "type": "منزلي", "ing": "لوز 90%, ورد 10%", "method": "خلف الأذن."},
     {"name": "مزيل عرق كريمي", "cat": "عطور", "type": "تجاري", "ing": "شبة 40%, كريم 50%, مسك 10%", "method": "حماية كاملة."},
     {"name": "ورد فازلين", "cat": "عطور", "type": "منزلي", "ing": "فازلين 80%, زيت ورد 20%", "method": "تعطير طبيعي."},
-    # --- قسم صابون (10) ---
+    # --- قسم صابون ---
     {"name": "شاور توت", "cat": "صابون", "type": "تجاري", "ing": "قاعدة 90%, توت 5%, لون 5%", "method": "خلط بارد."},
     {"name": "صابون بقدونس", "cat": "صابون", "type": "منزلي", "ing": "غار 60%, عصير بقدونس 40%", "method": "تذويب."},
     {"name": "صابون نيلة", "cat": "صابون", "type": "تجاري", "ing": "قاعدة 90%, نيلة 10%", "method": "تفتيح."},
@@ -144,7 +143,7 @@ all_recipes = [
     {"name": "عسل ومرة", "cat": "صابون", "type": "منزلي", "ing": "صابون 80%, عسل 10%, مرة 10%", "method": "حساسية."},
     {"name": "صابون فحم", "cat": "صابون", "type": "تجاري", "ing": "قاعدة 95%, فحم 5%", "method": "للمسام."},
     {"name": "غسول بابونج", "cat": "صابون", "type": "منزلي", "ing": "ماء 90%, بابونج 10%", "method": "يومي للوجه."},
-    # --- قسم القدم (10) ---
+    # --- قسم القدم ---
     {"name": "مقشر قدم يوريا", "cat": "عناية القدم", "type": "تجاري", "ing": "يوريا 40%, فازلين 40%, ساليسيليك 20%", "method": "للشقوق."},
     {"name": "نقع قدم خل", "cat": "عناية القدم", "type": "منزلي", "ing": "ماء 70%, خل 20%, ملح 10%", "method": "فطريات وجلد ميت."},
     {"name": "تورد قدم", "cat": "عناية القدم", "type": "تجاري", "ing": "فازلين 95%, عكر فاسي 5%", "method": "لون ونعومة."},
@@ -157,64 +156,80 @@ all_recipes = [
     {"name": "بارافين", "cat": "عناية القدم", "type": "منزلي", "ing": "بارافين 80%, زيت زيتون 20%", "method": "تنعيم فائق."}
 ]
 
-# 5. القائمة الجانبية
-st.sidebar.markdown("<p class='sidebar-text'>⚖️ حاسبة الإنتاج</p>", unsafe_allow_html=True)
-total_weight = st.sidebar.number_input("الوزن المطلوب (g):", min_value=1, value=1000)
+# 5. شريط الأدوات الجانبي
+with st.sidebar:
+    st.markdown("<h3 class='sidebar-text'>⚖️ حاسبة المختبر</h3>", unsafe_allow_html=True)
+    total_w = st.number_input("الوزن المطلوب (غرام):", min_value=1, value=1000)
+    st.divider()
+    if st.button("🗑️ مسح ذاكرة الدردشة"):
+        st.session_state.messages = []
+        st.rerun()
 
 # 6. الواجهة الرئيسية
-st.title("🔬 SHOMA LAB PRO")
-tabs = st.tabs(["📚 قاعدة الوصفات (100)", "🧠 خبير الذكاء الاصطناعي"])
+tabs = st.tabs(["📚 قاعدة الوصفات الشاملة", "💬 خبير SHOMA السريع (Llama 3)"])
 
 with tabs[0]:
-    col1, col2 = st.columns([2, 1])
-    with col1:
-        search_query = st.text_input("🔍 ابحث:")
-    with col2:
-        cat_filter = st.selectbox("📂 القسم:", ["الكل"] + sorted(list(set(r['cat'] for r in all_recipes))))
+    search = st.text_input("🔍 ابحث عن منتج، مكون، أو غرض:")
+    filtered = [r for r in all_recipes if search.lower() in r['name'].lower() or search.lower() in r['ing'].lower()]
     
-    filtered_list = [r for r in all_recipes if (search_query.lower() in r['name'].lower() or search_query.lower() in r['ing'].lower())]
-    if cat_filter != "الكل": filtered_list = [r for r in filtered_list if r['cat'] == cat_filter]
-
-    for r in filtered_list:
-        with st.expander(f"✨ {r['name']} | {r['cat']}"):
-            st.write(f"**المكونات:** {r['ing']}")
-            st.info(f"**التحضير:** {r['method']}")
+    for r in filtered:
+        with st.expander(f"✨ {r['name']} - {r['cat']}"):
+            st.markdown(f"**المكونات الأساسية:** {r['ing']}")
+            st.info(f"**طريقة العمل:** {r['method']}")
             
+            # الحاسبة البرمجية
             parts = r['ing'].split(',')
-            calc_data = []
+            data = []
             for p in parts:
                 match = re.search(r'(\d+)%', p)
                 if match:
                     perc = int(match.group(1))
-                    weight = (perc / 100) * total_weight
-                    name = p.split(str(perc))[0].strip()
-                    calc_data.append({"المادة": name, "النسبة": f"{perc}%", "الوزن (g)": f"{weight:,.1f}"})
-            if calc_data:
-                st.table(pd.DataFrame(calc_data))
+                    val = (perc/100)*total_w
+                    data.append({"المادة": p.split(str(perc))[0].strip(), "النسبة": f"{perc}%", "الوزن المطلوب (g)": f"{val:,.2f}"})
+            if data: st.table(pd.DataFrame(data))
 
 with tabs[1]:
-    st.subheader("🤖 خبير Gemini البصري")
-    img_file = st.file_uploader("ارفع صورة للمنتج أو المكونات:", type=["jpg", "png", "jpeg"])
-    user_q = st.text_area("سؤالك البرمجي أو الكيميائي:")
-    
-    if st.button("تحليل الآن"):
-        if 'api_key' in locals():
-            with st.spinner("جاري التحليل..."):
-                try:
-                    # الحل الجذري والقطعي لخطأ 404:
-                    model = genai.GenerativeModel(model_name='models/gemini-1.5-flash')
-                    
-                    prompt = f"أنت خبير مختبر SHOMA LAB. أجب بدقة: {user_q}"
-                    if img_file:
-                        img = Image.open(img_file)
-                        res = model.generate_content([prompt, img])
-                    else:
-                        res = model.generate_content(prompt)
-                    st.markdown(res.text)
-                except Exception as e:
-                    st.error(f"خطأ في الاتصال بـ Gemini: {e}")
-        else:
-            st.warning("تأكد من وجود API Key في الإعدادات.")
+    # عرض تاريخ الدردشة ليكون الحوار طبيعي
+    for msg in st.session_state.messages:
+        with st.chat_message(msg["role"]):
+            st.markdown(msg["content"])
+
+    # منطقة المدخلات
+    with st.container():
+        # ميزة رفع صور متعددة
+        up_imgs = st.file_uploader("📸 ارفع صورة أو أكثر للتحليل:", type=["jpg", "png", "jpeg"], accept_multiple_files=True)
+        u_input = st.chat_input("تحدث معي كخبير...")
+
+    if u_input:
+        st.session_state.messages.append({"role": "user", "content": u_input})
+        with st.chat_message("user"):
+            st.markdown(u_input)
+
+        with st.chat_message("assistant"):
+            try:
+                # بناء المحتوى لـ Llama 3
+                content_list = [{"type": "text", "text": f"أنت خبير مختبر SHOMA LAB. أجب بدقة وموضوعية: {u_input}"}]
+                
+                if up_imgs:
+                    for img in up_imgs:
+                        b64_img = base64.b64encode(img.read()).decode('utf-8')
+                        content_list.append({"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64_img}"}})
+                
+                # إرسال مع الذاكرة الكاملة
+                history = [{"role": m["role"], "content": m["content"]} for m in st.session_state.messages[:-1]]
+                history.append({"role": "user", "content": content_list})
+                
+                res = client.chat.completions.create(
+                    model="llama-3.2-11b-vision-preview",
+                    messages=history
+                )
+                
+                final_text = res.choices[0].message.content
+                st.markdown(final_text)
+                st.session_state.messages.append({"role": "assistant", "content": final_text})
+                
+            except Exception as e:
+                st.error(f"حدث خطأ فني: {e}")
 
 st.markdown("---")
-st.caption("SHOMA LAB PRO © 2026 | الإصدار النهائي المتكامل")
+st.caption("SHOMA LAB PRO | الإصدار النهائي الفائق لعام 2026")
