@@ -6,7 +6,7 @@ import base64
 from PIL import Image
 import io
 
-# 1. إعدادات الهوية والتصميم (Dark Theme)
+# 1. إعدادات الهوية والتصميم (Dark Mode)
 st.set_page_config(page_title="SHOMA LAB PRO", layout="wide", page_icon="🔬")
 
 st.markdown("""
@@ -23,26 +23,28 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# 2. إعداد محرك Groq بالمفتاح الذي زودتني به
-# ملاحظة: برمجياً الأفضل وضعه في Secrets، لكن وضعته هنا مباشرة بناءً على طلبك
-client = Groq(api_key="Gsk_6yiYaU9DB5VlnV3BTv1OWGdyb3FYDj1vZU8gRR6NybW3YUyXBF0f")
+# 2. إعداد محرك Groq (سحب المفتاح من Secrets)
+if "GROQ_API_KEY" in st.secrets:
+    client = Groq(api_key=st.secrets["GROQ_API_KEY"])
+else:
+    st.error("⚠️ يرجى إضافة GROQ_API_KEY في Secrets لتشغيل الذكاء الاصطناعي.")
+    st.stop()
 
-# 3. إدارة الجلسة والذاكرة
+# 3. نظام الأمان والذاكرة
 if "auth" not in st.session_state: st.session_state.auth = False
 if "messages" not in st.session_state: st.session_state.messages = []
 
-# نظام الأمان (الرمز 247)
 if not st.session_state.auth:
-    st.markdown("<h1>🔬 SHOMA LAB PRO - نظام الدخول</h1>", unsafe_allow_html=True)
-    pwd = st.text_input("أدخل الرمز السري للوصول:", type="password")
-    if st.button("تأكيد الدخول"):
+    st.markdown("<h1>🔬 SHOMA LAB PRO - الدخول</h1>", unsafe_allow_html=True)
+    pwd = st.text_input("الرمز السري:", type="password")
+    if st.button("دخول"):
         if pwd == "247":
             st.session_state.auth = True
             st.rerun()
-        else: st.error("الرمز غير صحيح.")
+        else: st.error("خطأ في الرمز!")
     st.stop()
 
-# 4. قاعدة البيانات (الـ 100 وصفة كاملة)
+# 4. قاعدة البيانات (100 وصفة كاملة)
 all_recipes = [
     # --- قسم الشعر ---
     {"name": "سيروم الروزماري والبروكابيل", "cat": "عناية الشعر", "type": "تجاري", "ing": "ماء 85%, بروكابيل 3%, جلسرين 10%, حافظة 2%", "method": "خلط بارد."},
@@ -189,14 +191,13 @@ with tabs[0]:
             if data: st.table(pd.DataFrame(data))
 
 with tabs[1]:
-    # عرض تاريخ الدردشة ليكون الحوار طبيعي
+    # عرض تاريخ الدردشة
     for msg in st.session_state.messages:
         with st.chat_message(msg["role"]):
             st.markdown(msg["content"])
 
     # منطقة المدخلات
     with st.container():
-        # ميزة رفع صور متعددة
         up_imgs = st.file_uploader("📸 ارفع صورة أو أكثر للتحليل:", type=["jpg", "png", "jpeg"], accept_multiple_files=True)
         u_input = st.chat_input("تحدث معي كخبير...")
 
